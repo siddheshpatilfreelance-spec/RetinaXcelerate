@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RetinaXcelerate — Diabetic Retinopathy Detection</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <nav class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+          <path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">RetinaXcelerate</div>
+        <div class="brand-sub">Diabetic Retinopathy Detection</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="#" class="nav-link active" data-tab="predict">
+        <span class="nl-ico">🔮</span>Predict</a>
+      <a href="#" class="nav-link" data-tab="model">
+        <span class="nl-ico">🧠</span>Model</a>
+      <a href="#" class="nav-link" data-tab="diseases">
+        <span class="nl-ico">🩻</span>Diseases</a>
+      <a href="#" class="nav-link" data-tab="results">
+        <span class="nl-ico">📈</span>Results</a>
+      <a href="#" class="nav-link" data-tab="about">
+        <span class="nl-ico">ℹ️</span>About</a>
+    </div>
+    <div class="nav-meta" id="nav-meta">
+      <span class="status-dot"></span><span id="nav-meta-text">loading…</span>
+    </div>
+  </nav>
+
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-kicker">M.TECH RESEARCH PROJECT</div>
+        <h1>A Scalable Deep Learning Pipeline<br/>for Diabetic Retinopathy Detection</h1>
+        <p>Two Vision Transformers (ViT-B/16) fine-tuned on real retinal fundus
+           photographs are combined by Cross-Checkpoint Ensemble Refinement (CCER)
+           to grade diabetic retinopathy severity, and Attention Rollout highlights
+           the retinal regions that drove the decision — built for explainable
+           medical imaging research.</p>
+        <div class="pills">
+          <span class="pill"><b id="pill-params">172M</b> params</span>
+          <span class="pill"><b>2× ViT-B/16</b></span>
+          <span class="pill"><b>5-class</b> DR grading</span>
+          <span class="pill"><b>Attention Rollout</b></span>
+          <span class="pill"><b>FastAPI</b> + PyTorch</span>
+        </div>
+        <div class="hero-ctas">
+          <button class="btn primary" data-goto="predict">🔮 Try it on a fundus image</button>
+          <button class="btn ghost" data-goto="model">See how the model works</button>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-v">5</div><div class="stat-l">severity grades</div></div>
+        <div class="stat"><div class="stat-v">224²</div><div class="stat-l">input px</div></div>
+        <div class="stat"><div class="stat-v">12</div><div class="stat-l">ViT layers</div></div>
+        <div class="stat"><div class="stat-v">72.9%</div><div class="stat-l">val. accuracy</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ===================== PREDICT ===================== -->
+    <section id="predict" class="tab-panel active">
+
+      <div class="section-head">
+        <h2>Live diagnosis</h2>
+        <p>Upload a retinal fundus photograph or pick a sample below to see the
+           model's severity prediction, confidence distribution across all 5 DR
+           grades, and the attention heatmap it relied on.</p>
+      </div>
+
+      <div class="card">
+        <h3>Sample fundus images</h3>
+        <p class="muted">Tap a sample to run it instantly — these ship with the app (Wikimedia Commons, public domain).</p>
+        <div class="sample-grid" id="sample-grid"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card upload-card">
+          <h3>Upload your own image</h3>
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept="image/png,image/jpeg" hidden />
+            <div class="dz-icon">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 16V4M6 10l6-6 6 6"/>
+                <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+              </svg>
+            </div>
+            <div class="dz-text">Click or drag a fundus image here</div>
+            <div class="dz-sub">PNG or JPG · preferably 224×224 or larger</div>
+          </label>
+          <div class="toggle-row">
+            <label class="switch">
+              <input type="checkbox" id="cam-toggle" checked />
+              <span class="slider"></span>
+            </label>
+            <span>Show attention-rollout heatmap</span>
+          </div>
+          <div class="toggle-row" id="enhanced-row" hidden>
+            <label class="switch">
+              <input type="checkbox" id="enhanced-toggle" />
+              <span class="slider"></span>
+            </label>
+            <span>Enhanced mode <span class="muted tiny">— adds fine-tuned members to CCER (paper Future Work §VII-1)</span></span>
+          </div>
+          <button class="btn primary block" id="predict-btn" disabled>
+            🔮 Run prediction
+          </button>
+          <div class="preview">
+            <img id="preview-img" alt="" />
+          </div>
+        </div>
+
+        <div class="card result-card">
+          <h3>Prediction</h3>
+          <div id="results-empty" class="empty">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+              </svg>
+            </div>
+            <p>Pick a sample image or upload one, then hit <b>Run prediction</b>.</p>
+          </div>
+          <div id="results" class="hidden">
+            <div class="verdict" id="verdict">
+              <div class="verdict-badge"><span id="verdict-grade">0</span></div>
+              <div class="verdict-body">
+                <div class="verdict-title" id="m-class">—</div>
+                <div class="verdict-sub">Confidence <b id="m-conf">—</b> · Severity <b id="m-sev">—</b> / 4</div>
+              </div>
+            </div>
+            <div class="clinical" id="clinical-note"></div>
+            <h4>Full probability distribution</h4>
+            <div id="ranking"></div>
+            <div id="cam-wrap" class="hidden">
+              <h4>Attention rollout</h4>
+              <img id="cam-img" alt="attention overlay" />
+              <p class="muted tiny">Warm colors = retinal regions the ViT focused on for its prediction.</p>
+            </div>
+            <p class="muted tiny" id="mode-note"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MODEL ===================== -->
+    <section id="model" class="tab-panel">
+      <div class="section-head">
+        <h2>The model</h2>
+        <p>Real, fine-tuned Vision Transformers pulled live from HuggingFace Hub —
+           no placeholder, no random head. This section walks through the ensemble,
+           its preprocessing, and the explainability method we use on top of it.</p>
+      </div>
+
+      <div class="card">
+        <div class="model-head">
+          <div>
+            <h3>Ensemble — 2× Vision Transformer (ViT-B/16)</h3>
+            <p class="muted">
+              We combine two independently fine-tuned DR ViTs so their biases
+              cancel out. HuggingFace checkpoints:
+            </p>
+            <ul class="bullets tight" id="hf-repo-list"></ul>
+          </div>
+          <div class="kv">
+            <div><span>Ensemble params</span><b id="kv-params">—</b></div>
+            <div><span>Device</span><b id="kv-device">—</b></div>
+            <div><span>Input</span><b>224 × 224</b></div>
+            <div><span>Members</span><b>2</b></div>
+            <div><span>TTA views</span><b>2</b></div>
+            <div><span>Preproc variants</span><b>2</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Cross-Checkpoint Ensemble Refinement (CCER)</h3>
+        <p>
+          Each individual checkpoint caps at ~73% validation accuracy and is
+          badly biased — Kontawat over-calls "Mild NPDR" on healthy retinas,
+          rafalosa under-calls disease. We stack four well-known,
+          training-free techniques to fix this:
+        </p>
+        <div class="trick-grid">
+          <div class="trick">
+            <div class="trick-ico">⚖️</div>
+            <div>
+              <h4>Model ensemble (CCER)</h4>
+              <p>Each member's labels are remapped to the unified ICDR scale, then
+                 probabilities are averaged with equal weights. Their errors are
+                 anti-correlated, so the ensemble beats either alone.</p>
+            </div>
+          </div>
+          <div class="trick">
+            <div class="trick-ico">🔄</div>
+            <div>
+              <h4>Test-time augmentation</h4>
+              <p>Retinal diagnosis is horizontal-flip invariant. We forward
+                 both the original and the mirrored image and average the
+                 predictions.</p>
+            </div>
+          </div>
+          <div class="trick">
+            <div class="trick-ico">⭕</div>
+            <div>
+              <h4>Circular fundus crop</h4>
+              <p>Auto-crop the retinal disk (luminance threshold τ = 15) out of
+                 any black border before inference so the model doesn't waste
+                 attention on padding.</p>
+            </div>
+          </div>
+          <div class="trick">
+            <div class="trick-ico">🎛️</div>
+            <div>
+              <h4>Ben Graham preprocessing</h4>
+              <p>Subtract a Gaussian-blurred copy (σ = 10) to normalize local
+                 illumination — the 2015 Kaggle DR winner's transform. The raw and
+                 Ben Graham paths are mixed with α = 0.65.</p>
+            </div>
+          </div>
+        </div>
+        <p class="muted tiny">
+          Net effect on the curated Wikimedia gallery: <b>baseline 1/4 → ensemble 3/4</b>
+          top-1 correct on the four-image baseline-overlap subset, and the
+          CMV-retinitis image (out-of-distribution) is correctly rejected as non-DR.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Architecture</h3>
+<pre class="diagram">Input fundus image (3 × 224 × 224)
+               │
+      ┌────────┴────────┐
+      │  Patch embed    │  16 × 16 patches → 196 tokens
+      │  + CLS token    │  + learned positional embed
+      └────────┬────────┘
+               │
+┌──────────────┴──────────────┐
+│       12 × ViT encoder       │
+│                              │
+│   LayerNorm                  │
+│       │                      │
+│   Multi-head self-attention  │
+│       │                      │
+│   Residual + LayerNorm       │
+│       │                      │
+│   MLP (768 → 3072 → 768)     │
+│       │                      │
+│   Residual                   │
+└──────────────┬──────────────┘
+               │
+          CLS token
+               │
+          LayerNorm
+               │
+         Linear(768 → 5)
+               │
+            Softmax
+               │
+  [No DR, Mild, Moderate, Severe, PDR]</pre>
+        </div>
+
+        <div class="card">
+          <h3>Ensemble members</h3>
+          <ul class="bullets">
+            <li><b>Backbone:</b> ViT-B/16 (ImageNet-21k pretrained), fine-tuned for DR severity by each checkpoint's author</li>
+            <li><b>Member 1 (primary):</b> rafalosa — weight 1.0, used for the attention overlay</li>
+            <li><b>Member 2:</b> Kontawat — weight 1.0</li>
+            <li><b>Task:</b> 5-class single-label severity grading (ICDR scale)</li>
+            <li><b>Label remap:</b> each checkpoint's <code>id2label</code> is mapped onto severity 0–4</li>
+            <li><b>Framework:</b> HuggingFace Transformers + PyTorch (MPS / CUDA / CPU)</li>
+          </ul>
+
+          <h3>Explainability — Attention Rollout</h3>
+          <p>
+            Grad-CAM doesn't naturally fit a ViT. Instead we use
+            <b>Attention Rollout</b>: average attention across heads, add a
+            residual to the attention matrix, and multiply the per-layer
+            matrices together from input to output. The CLS-token row of the
+            final rollout gives a per-patch importance score, reshaped to
+            14×14 and upsampled to 224×224 for the overlay you see in the
+            Predict tab.
+          </p>
+
+          <h3>Why a Transformer for retinas?</h3>
+          <p>
+            Retinal lesions (microaneurysms, hemorrhages, cotton-wool spots)
+            are often small, sparse, and spatially distributed. Self-attention
+            lets every patch "see" every other patch from layer 1, so the
+            model can correlate subtle lesions across the whole fundus instead
+            of building up the receptive field layer by layer like a CNN.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DISEASES ===================== -->
+    <section id="diseases" class="tab-panel">
+      <div class="section-head">
+        <h2>Disease types</h2>
+        <p>This classifier targets the <b>5-point International Clinical Diabetic
+           Retinopathy severity scale</b>, the same scale used in clinical screening
+           programs and the APTOS 2019 Kaggle challenge.</p>
+      </div>
+
+      <div class="disease-grid" id="disease-grid"></div>
+
+      <div class="card">
+        <h3>Bonus — multi-disease pipeline (RFMiD)</h3>
+        <p>
+          The repository also ships a full ResNet50 + two-stage fine-tuning
+          pipeline for the <b>Retinal Fundus Multi-Disease Image Dataset
+          (RFMiD)</b> — a 3,200-image multi-label dataset covering
+          <b>45 retinal conditions</b>:
+        </p>
+        <div class="chip-row" id="rfmid-chips"></div>
+        <p class="muted tiny">
+          RFMiD requires several GB of disk space, so live inference in this
+          demo runs on the pretrained DR ViT ensemble above. If you have the dataset
+          locally, run <code>python -m src.train --data-root data</code> to
+          train the multi-label classifier end-to-end.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== RESULTS ===================== -->
+    <section id="results-tab" class="tab-panel">
+      <div class="section-head">
+        <h2>Results</h2>
+        <p>Evaluation of the CCER ensemble on the curated gallery, plus the
+           upstream numbers reported on the members' model cards.</p>
+      </div>
+
+      <div class="card">
+        <h3>Curated gallery — top-1 per sample</h3>
+        <div class="table-wrap"><table class="data">
+          <tr><th>Sample</th><th>Kontawat</th><th>rafalosa</th><th>Ensemble</th></tr>
+          <tr><td>normal</td><td>Mild (0.53)</td><td>No DR (0.83)</td><td><b>No DR (0.72)</b></td></tr>
+          <tr><td>dr_general</td><td>—</td><td>—</td><td><b>No DR (0.36)</b></td></tr>
+          <tr><td>dr_eda03</td><td>—</td><td>—</td><td><b>No DR (0.51)</b></td></tr>
+          <tr><td>cotton_wool</td><td>—</td><td>—</td><td><b>No DR (0.27)</b></td></tr>
+          <tr><td>proliferative</td><td>Mild (0.48)</td><td>No DR (0.54)</td><td><b>Mod. (0.37)</b></td></tr>
+          <tr><td>laser_dr</td><td>Prolif. (0.82)</td><td>No DR (0.73)</td><td><b>Prolif. (0.39)</b></td></tr>
+          <tr><td>cmv</td><td>Mild (0.69)</td><td>No DR (0.71)</td><td><b>No DR (0.40)</b></td></tr>
+        </table></div>
+        <p class="muted tiny">Regenerate with <code>python -m src.paper_benchmark</code> (also reproduces the ablation and latency tables).</p>
+      </div>
+
+      <div class="card">
+        <h3>Upstream evaluation (model cards)</h3>
+        <div class="metric-row big">
+          <div class="metric"><div class="metric-label">Kontawat val. acc.</div><div class="metric-value">72.87%</div></div>
+          <div class="metric"><div class="metric-label">rafalosa val. acc.</div><div class="metric-value">74.31%</div></div>
+          <div class="metric"><div class="metric-label">Parameters</div><div class="metric-value">~172 M</div></div>
+          <div class="metric"><div class="metric-label">Input</div><div class="metric-value">224²</div></div>
+        </div>
+      </div>
+
+      <div class="card" id="enhanced-card" hidden>
+        <h3>Enhanced mode — fine-tuned members (paper Future Work §VII-1)</h3>
+        <p class="muted">Optional extension beyond the published pipeline: the same CCER
+           aggregation with two additional members fine-tuned on APTOS 2019 + IDRiD.
+           Weights chosen on a validation split; numbers below are on held-out
+           ophthalmologist-graded test sets.</p>
+        <div id="enhanced-tables"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Confusion-matrix interpretation guide</h3>
+          <p>
+            DR severity is ordinal — confusing Mild ↔ Moderate is very different
+            from confusing No DR ↔ Proliferative DR. When you benchmark this
+            model, look at:
+          </p>
+          <ul class="bullets">
+            <li><b>Referable DR detection</b> — binary task: ≥ Moderate vs &lt; Moderate. This is what screening programs care about.</li>
+            <li><b>Quadratic weighted κ</b> — penalizes far-off misgradings more than close ones; standard APTOS metric.</li>
+            <li><b>Macro recall</b> — guards against under-calling rare severe cases.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Reproduce</h3>
+<pre class="code">python -m src.paper_benchmark   # paper Tables IV, V, VI
+python -m src.evaluate_ccer     # enhanced mode on held-out sets</pre>
+          <p>Outputs are written to <code>results/</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABOUT ===================== -->
+    <section id="about" class="tab-panel">
+      <div class="section-head">
+        <h2>About the project</h2>
+        <p>End-to-end M.Tech project for diabetic retinopathy grading. The goal
+           was a real, explainable, deployable diagnosis pipeline built on top of
+           modern pretrained medical-imaging models — not a toy demo.</p>
+      </div>
+
+      <div class="timeline">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h4>Model sourcing</h4>
+            <p>Two ViT-B/16 checkpoints fine-tuned for DR severity grading are pulled
+               live from HuggingFace Hub (<a id="about-model" target="_blank">model card</a>)
+               behind a checkpoint-agnostic service abstraction.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h4>Preprocessing</h4>
+            <p>Circular crop, then two paths — raw and Ben Graham (σ = 10) — each
+               with horizontal-flip test-time augmentation.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h4>Inference</h4>
+            <p>Eight ViT forward passes (2 members × 2 views × 2 paths); per-member
+               probabilities are remapped to the ICDR scale and combined by CCER.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div>
+            <h4>Explainability</h4>
+            <p>Attention Rollout across all 12 layers produces a 14×14 saliency
+               map that is upsampled and overlaid on the original fundus — so a
+               clinician can verify <i>why</i> the model is confident.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div>
+            <h4>Deployment</h4>
+            <p>FastAPI backend + static HTML/CSS/JS frontend. No build step, no
+               framework lock-in, easy to containerize and deploy behind nginx.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Run it locally</h3>
+<pre class="code">pip install -r requirements.txt
+python server.py
+# open http://localhost:8000</pre>
+        <p class="disclaimer">
+          ⚠️ <b>Academic prototype — not a medical device.</b> Predictions must
+          not be used for clinical decision-making. This project exists to
+          demonstrate an end-to-end ML engineering workflow for medical imaging.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <div>
+      <b>RetinaXcelerate</b> · Built for M.Tech thesis · ViT-B/16 · FastAPI · PyTorch
+    </div>
+    <div class="muted tiny">Sample images: Wikimedia Commons (public domain).</div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
